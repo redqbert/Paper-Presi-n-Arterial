@@ -1,0 +1,457 @@
+
+
+```{r}
+library(lmtest)
+library(carData)
+library(car)
+library(lattice)
+```
+
+
+```{r}
+dataBefore_df = read.csv("C:/Users/josep/Desktop/semestre 6/metodologia/analisis R/pre_ejercicio_reg.csv", sep=";")
+
+dataAfter_df = read.csv("C:/Users/josep/Desktop/semestre 6/metodologia/analisis R/post_ejercicio_reg.csv", sep=";")
+
+dataBefore_df$id=dataBefore_df$ï..id
+dataAfter_df$id=dataAfter_df$ï..id
+
+##
+allData_df_1 = merge(dataBefore_df, dataAfter_df, by = "id", all =  TRUE); head(allData_df_1)
+allData_df_1 = allData_df_1[, c(-1,-2,-12)]
+
+allData_df = na.omit(allData_df_1)
+rownames(allData_df) = 1:nrow(allData_df)
+
+## Frecuency for exercise
+allData_df$exercise_by_day = ifelse(allData_df$exercise_by_day > 2, 1, 0)
+allData_df$exercise_by_day = factor(allData_df$exercise_by_day)
+levels(allData_df$exercise_by_day) = c("Low_Frequency", "High_Frequency")
+
+## Factor by sex
+allData_df$sex = factor(allData_df$sex)
+levels(allData_df$sex) = c("Men", "Women")
+
+
+data_sys=allData_df
+data_dia=allData_df
+
+data_sys$IMC=(data_sys$weight)/(data_sys$height^2)
+data_dia$IMC=(data_dia$weight)/(data_dia$height^2)
+
+data_sys$dif1=abs(data_sys$sys_after-data_sys$sys_before)
+
+data_dia$dif2=abs(data_dia$dia_after-data_dia$dia_before)
+
+
+data_sys=data_sys[,-c(1,2,7,9,10,12)]
+data_dia=data_dia[,-c(1,2,7,9,10,12)]
+
+save(data_sys,file="data_sys.Rdata")
+save(data_dia,file="data_dia.Rdata")
+```
+
+```{r}
+mod_sys1 = lm(dif1 ~ ( IMC + age + freq_phone + pulse_before  + pulse_after) *  sex + exercise_by_day * ( IMC + age + freq_phone + pulse_before + pulse_after), data = data_sys)
+
+mod_dia1 = lm(dif2 ~ ( IMC  + age + freq_phone + pulse_before + pulse_after) *  sex + exercise_by_day * ( IMC + age + freq_phone + pulse_before + pulse_after), data = data_dia)
+
+
+vif(mod_sys1)
+vif(mod_dia1)
+```
+
+
+```{r}
+
+mod_sys1 = lm(dif1 ~ ( IMC + age + freq_phone + pulse_before  + pulse_after) *  sex + exercise_by_day * ( IMC + age + freq_phone + pulse_before + pulse_after), data = data_sys)
+
+mod_dia1 = lm(dif2 ~ ( IMC  + age + freq_phone + pulse_before + pulse_after) *  sex + exercise_by_day * ( IMC + age + freq_phone + pulse_before + pulse_after), data = data_dia)
+
+
+round(vif(mod_sys1),2)
+round(vif(mod_dia1),2)
+
+mod_sys1 = lm(dif1 ~ ( IMC + age + freq_phone + pulse_before  + pulse_after) *  sex + exercise_by_day * freq_phone, data = data_sys)
+
+mod_dia1 = lm(dif2 ~ ( IMC  + age + freq_phone + pulse_before + pulse_after) *  sex + exercise_by_day *freq_phone, data = data_dia)
+
+vif(mod_sys1)
+vif(mod_dia1)
+
+mod_sys1 = lm(dif1 ~ IMC+age+pulse_before+pulse_after+freq_phone *  sex + exercise_by_day * freq_phone, data = data_sys)
+
+mod_dia1 = lm(dif2 ~ IMC+age+pulse_before+pulse_after+freq_phone *  sex + exercise_by_day * freq_phone, data = data_dia)
+
+
+round(vif(mod_sys1),2)
+
+round(vif(mod_dia1),2)
+
+qqPlot(residuals(mod_sys1))
+qqPlot(residuals(mod_dia1))
+
+shapiro.test(residuals(mod_sys1))
+shapiro.test(residuals(mod_dia1))
+
+mod_dia1 = lm(log(dif2+1) ~ IMC+age+pulse_before+pulse_after+freq_phone *  sex + exercise_by_day * freq_phone, data = data_dia)
+
+shapiro.test(residuals(mod_dia1))
+
+ks.test(residuals(mod_sys1),"pnorm")
+ks.test(residuals(mod_dia1),"pnorm")
+
+plot(fitted(mod_sys1), residuals(mod_sys1))
+plot(fitted(mod_dia1), residuals(mod_dia1))
+
+bptest(mod_sys1, studentize = F)
+bptest(mod_dia1, studentize = F)
+
+
+
+
+```
+```{r}
+par(mfrow=c(1,2))
+
+t1 = rstudent(mod_sys1)
+n1=nrow(allData_df)
+p1=length(mod_sys1$coef)
+tc1=qt(1-0.05/(2*n1),n1-p1-1)
+plot(t1,ylim=c(-3,5),pch=18,ylab="Residuos",xlab="Residuales Rezagados Dif SYS")
+abline(h=tc1)
+
+t2 = rstudent(mod_dia1)
+n2=nrow(allData_df)
+p2=length(mod_dia1$coef)
+tc2=qt(1-0.05/(2*n2),n2-p2-1)
+plot(t2,ylim=c(-3,5),pch=18,ylab="Residuos",xlab="Residuales Rezagados Dif DIA")
+abline(h=tc2)
+
+
+allData_df[t2>4,]
+
+```
+
+```{r}
+
+par(mfrow=c(1,2))
+qqPlot(residuals(mod_sys1),ylab="residuales",xlab="Diferencia Sistólica")
+qqPlot(residuals(mod_dia1),ylab="residuales",xlab="Diferencia Diastólica")
+```
+
+
+
+```{r}
+# Establecer la matriz de gráficos (2 filas, 3 columnas)
+par(mfrow = c(2, 3))
+
+# Gráfico 1: Dif1 vs Edad
+plot(dif1 ~ age, 
+     xlab = "Edad", 
+     ylab = "Diferencia Sistólica", 
+     data = data_sys)
+
+# Línea de tendencia suave con f = 0.9
+lines(lowess(data_sys$age, data_sys$dif1, f = 0.9), col = "blue", lwd = 2)
+
+# Línea de regresión lineal
+abline(lm(dif1 ~ age, data = data_sys), col = "blue", lwd = 2, lty = 2)
+
+# Agregar la cuadrícula
+grid(col = "gray90", lty = "dotted")
+
+
+# Gráfico 2: Dif1 vs Uso Teléfono
+plot(dif1 ~ freq_phone, 
+     xlab = "Uso Teléfono", 
+     ylab = "Diferencia Sistólica", 
+     data = data_sys)
+
+# Línea de tendencia suave con f = 0.9
+lines(lowess(data_sys$freq_phone, data_sys$dif1, f = 0.9), col = "blue", lwd = 2)
+
+# Línea de regresión lineal
+abline(lm(dif1 ~ freq_phone, data = data_sys), col = "blue", lwd = 2, lty = 2)
+
+# Agregar la cuadrícula
+grid(col = "gray90", lty = "dotted")
+
+
+# Gráfico 3: Dif1 vs Pulso antes
+plot(dif1 ~ pulse_before, 
+     xlab = "Pulso Antes", 
+     ylab = "Diferencia Sistólica", 
+     data = data_sys)
+
+# Línea de tendencia suave con f = 0.9
+lines(lowess(data_sys$pulse_before, data_sys$dif1, f = 0.9), col = "blue", lwd = 2)
+
+# Línea de regresión lineal
+abline(lm(dif1 ~ pulse_before, data = data_sys), col = "blue", lwd = 2, lty = 2)
+
+# Agregar la cuadrícula
+grid(col = "gray90", lty = "dotted")
+
+
+# Gráfico 4: Dif1 vs Pulso después
+plot(dif1 ~ pulse_after, 
+     xlab = "Pulso Después", 
+     ylab = "Diferencia Sistólica", 
+     data = data_sys)
+
+# Línea de tendencia suave con f = 0.9
+lines(lowess(data_sys$pulse_after, data_sys$dif1, f = 0.9), col = "blue", lwd = 2)
+
+# Línea de regresión lineal
+abline(lm(dif1 ~ pulse_after, data = data_sys), col = "blue", lwd = 2, lty = 2)
+
+# Agregar la cuadrícula
+grid(col = "gray90", lty = "dotted")
+
+
+# Gráfico 5: Dif1 vs IMC
+plot(dif1 ~ IMC, 
+     xlab = "IMC", 
+     ylab = "Diferencia Sistólica", 
+     data = data_sys)
+
+# Línea de tendencia suave con f = 0.9
+lines(lowess(data_sys$IMC, data_sys$dif1, f = 0.9), col = "blue", lwd = 2)
+
+# Línea de regresión lineal
+abline(lm(dif1 ~ IMC, data = data_sys), col = "blue", lwd = 2, lty = 2)
+
+# Agregar la cuadrícula
+grid(col = "gray90", lty = "dotted")
+
+
+
+```
+
+```{r}
+# Configurar la matriz de gráficos
+par(mfrow = c(2, 3))
+
+# Gráfico 1: Dif2 vs Edad
+plot(dif2 ~ age, 
+     xlab = "Edad", 
+     ylab = "Diferencia Diastólica", 
+     data = data_dia)
+
+# Agregar la línea de tendencia suave con f = 0.9
+lines(lowess(data_dia$age, data_dia$dif2, f = 0.9), col = "blue", lwd = 2)
+
+# Agregar la línea recta ajustada (ajuste lineal)
+abline(lm(dif2 ~ age, data = data_dia), col = "blue", lwd = 2, lty = 2)
+
+# Agregar la cuadrícula
+grid(col = "gray90", lty = "dotted")
+
+
+# Gráfico 2: Dif2 vs Uso Teléfono
+plot(dif2 ~ freq_phone, 
+     xlab = "Uso Teléfono", 
+     ylab = "Diferencia Diastólica", 
+     data = data_dia)
+
+# Agregar la línea de tendencia suave con f = 0.9
+lines(lowess(data_dia$freq_phone, data_dia$dif2, f = 0.9), col = "blue", lwd = 2)
+
+# Agregar la línea recta ajustada (ajuste lineal)
+abline(lm(dif2 ~ freq_phone, data = data_dia), col = "blue", lwd = 2, lty = 2)
+
+# Agregar la cuadrícula
+grid(col = "gray90", lty = "dotted")
+
+
+# Gráfico 3: Dif2 vs Pulso antes
+plot(dif2 ~ pulse_before, 
+     xlab = "Pulso Antes", 
+     ylab = "Diferencia Diastólica", 
+     data = data_dia)
+
+# Agregar la línea de tendencia suave con f = 0.9
+lines(lowess(data_dia$pulse_before, data_dia$dif2, f = 0.9), col = "blue", lwd = 2)
+
+# Agregar la línea recta ajustada (ajuste lineal)
+abline(lm(dif2 ~ pulse_before, data = data_dia), col = "blue", lwd = 2, lty = 2)
+
+# Agregar la cuadrícula
+grid(col = "gray90", lty = "dotted")
+
+
+# Gráfico 4: Dif2 vs Pulso después
+plot(dif2 ~ pulse_after, 
+     xlab = "Pulso Después", 
+     ylab = "Diferencia Diastólica", 
+     data = data_dia)
+
+# Agregar la línea de tendencia suave con f = 0.9
+lines(lowess(data_dia$pulse_after, data_dia$dif2, f = 0.9), col = "blue", lwd = 2)
+
+# Agregar la línea recta ajustada (ajuste lineal)
+abline(lm(dif2 ~ pulse_after, data = data_dia), col = "blue", lwd = 2, lty = 2)
+
+# Agregar la cuadrícula
+grid(col = "gray90", lty = "dotted")
+
+
+# Gráfico 5: Dif2 vs IMC
+plot(dif2 ~ IMC, 
+     xlab = "IMC", 
+     ylab = "Diferencia Diastólica", 
+     data = data_dia)
+
+# Agregar la línea de tendencia suave con f = 0.9
+lines(lowess(data_dia$IMC, data_dia$dif2, f = 0.9), col = "blue", lwd = 2)
+
+# Agregar la línea recta ajustada (ajuste lineal)
+abline(lm(dif2 ~ IMC, data = data_dia), col = "blue", lwd = 2, lty = 2)
+
+# Agregar la cuadrícula
+grid(col = "gray90", lty = "dotted")
+
+# Restaurar la configuración predeterminada de gráficos
+par(mfrow = c(1, 1))
+
+```
+
+```{r}
+
+mod_sys1 = lm(dif1 ~ IMC+age+pulse_before+pulse_after+freq_phone *  sex + exercise_by_day * freq_phone, data = data_sys)
+
+mod_dia1 = lm(log(dif2+1) ~ IMC+age+pulse_before+pulse_after+freq_phone *  sex + exercise_by_day * freq_phone, data = data_dia)
+
+drop1(mod_sys1,test = "F")
+
+drop1(mod_dia1,test = "F")
+
+
+mod_sys1 = lm(dif1 ~ age+pulse_before+pulse_after+freq_phone *  sex + exercise_by_day * freq_phone, data = data_sys)
+
+mod_dia1 = lm(log(dif2+1) ~ IMC+age+pulse_after+freq_phone *  sex + exercise_by_day * freq_phone, data = data_dia)
+
+
+drop1(mod_sys1,test = "F")
+
+drop1(mod_dia1,test = "F")
+
+mod_sys1 = lm(dif1 ~ age+pulse_before+pulse_after+freq_phone +sex + exercise_by_day * freq_phone, data = data_sys)
+
+mod_dia1 = lm(log(dif2+1) ~ IMC+age+pulse_after+freq_phone *  sex + exercise_by_day +freq_phone, data = data_dia)
+
+drop1(mod_sys1,test = "F")
+
+drop1(mod_dia1,test = "F")
+
+mod_sys1 = lm(dif1 ~ age+pulse_after+freq_phone +sex + exercise_by_day * freq_phone, data = data_sys)
+
+mod_dia1 = lm(log(dif2+1) ~ age+pulse_after+freq_phone *  sex + exercise_by_day +freq_phone, data = data_dia)
+
+drop1(mod_sys1,test = "F")
+
+drop1(mod_dia1,test = "F")
+
+mod_sys1 = lm(dif1 ~ age+freq_phone +sex + exercise_by_day * freq_phone, data = data_sys)
+
+mod_dia1 = lm(log(dif2+1) ~pulse_after+freq_phone *  sex + exercise_by_day +freq_phone, data = data_dia)
+
+drop1(mod_sys1,test = "F")
+
+drop1(mod_dia1,test = "F")
+
+mod_sys1 = lm(dif1 ~ age+freq_phone +sex + exercise_by_day + freq_phone, data = data_sys)
+
+mod_dia1 = lm(log(dif2+1) ~pulse_after+sex + exercise_by_day +freq_phone, data = data_dia)
+
+drop1(mod_sys1,test = "F")
+
+drop1(mod_dia1,test = "F")
+
+mod_sys1 = lm(dif1 ~ age+freq_phone +sex + exercise_by_day , data = data_sys)
+
+mod_dia1 = lm(log(dif2+1) ~pulse_after+ exercise_by_day +freq_phone, data = data_dia)
+
+drop1(mod_sys1,test = "F")
+
+drop1(mod_dia1,test = "F")
+
+mod_sys1 = lm(dif1 ~ age +sex + exercise_by_day , data = data_sys)
+
+drop1(mod_sys1,test = "F")
+
+mod_sys1 = lm(dif1 ~ age  + exercise_by_day , data = data_sys)
+
+drop1(mod_sys1,test = "F")
+
+summary(mod_sys1);summary(mod_dia1)
+
+
+```
+
+```{r}
+
+mod_sys1 = lm(dif1 ~ IMC+age+pulse_before+pulse_after+freq_phone *  sex + exercise_by_day * freq_phone, data = data_sys)
+
+mod_dia1 = lm(log(dif2+1) ~ IMC+age+pulse_before+pulse_after+freq_phone *  sex + exercise_by_day * freq_phone, data = data_dia)
+
+step(mod_sys1,direction = "both")
+
+step(mod_dia1,direction = "forward")
+
+```
+```{r}
+mod_sys1=lm(dif1 ~ age + exercise_by_day, data = data_sys)
+mod_dia1=lm(log(dif2 + 1) ~ pulse_after + freq_phone * sex + 
+    exercise_by_day + freq_phone, data = data_dia)
+
+mod_sys1$coefficients
+mod_dia1$coefficients
+
+summary(mod_sys1)
+summary(mod_dia1)
+```
+
+
+
+#Analisis PCA
+
+
+```{r}
+
+base_est = scale(data_sys[,-c(3, 4,8)],scale=T)
+
+pca=prcomp(base_est,scale=T)
+
+pca$rotation
+```
+Modelo 1
+
+y= 0.5740576 E + 0.6849281 IMC + 0.4290222 FT
+
+
+
+Modelo 2
+
+y= 0.30419506 E
+
+```{r}
+pca=prcomp(base_est[,-c(2,3,4)],scale=T)
+
+pca$rotation
+
+summary(pca)
+
+zeta1a=pca$x[,1]
+
+
+base_est = data.frame(scale(data_sys[,-c(3, 4)],scale=T))
+
+mod_final=lm(dif1~-1+freq_phone+pulse_before+pulse_after+zeta1a,data=base_est)
+mod_final$coefficients
+
+drop1(mod_final,test="F")
+```
+
+
